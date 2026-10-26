@@ -20,6 +20,8 @@ package com.google.devtools.ksp.processor
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 
 class VarArgAnnotationApplicationProcessor(
     val classNames: List<String>,
@@ -34,16 +36,29 @@ class VarArgAnnotationApplicationProcessor(
         classNames.forEach { className ->
             val decl = resolver.getClassDeclarationByName(className)!!
             decl.annotations.forEach { anno ->
-                val res = buildString {
-                    append(decl.qualifiedName?.asString() ?: decl.simpleName.asString())
-                    append(": ")
-                    append(anno.shortName.asString())
-                    append(": ")
-                    append(anno.arguments)
-                }
-                results.add(res)
+                val sb = StringBuilder()
+                sb.append(decl.qualifiedName?.asString() ?: decl.simpleName.asString())
+                sb.append(": ")
+                sb.append(anno.shortName.asString())
+                sb.append(": ")
+                visitAnnotationArguments(anno, sb)
+                results.add(sb.toString())
             }
         }
         return emptyList()
+    }
+
+    private fun visitAnnotationArguments(
+        annotation: KSAnnotation,
+        sb: StringBuilder
+    ): StringBuilder {
+        // Manually stringify the list so we can recursively visit annotations
+        sb.append("[")
+        sb.append(annotation.arguments.joinToString(", "))
+        annotation.arguments.map { it.value }
+            .filterIsInstance<KSAnnotation>()
+            .forEach { visitAnnotationArguments(it, sb) }
+        sb.append("]")
+        return sb
     }
 }

@@ -20,6 +20,7 @@
 // EXPECTED:
 // lib.MyLibClass: MyAnnotationWithDefault: [value:[]]
 // lib.MyLibClass: MyAnnotationWithoutDefault: [value:[]]
+// lib.MyLibClass: MyNestedVarArgAnnotation: [nested:@MyVarArgAnnotation[value:[]]]
 // lib.MyLibClass: MyVarArgAnnotation: [value:[]]
 // lib.MyLibClass: MyVarArgAnnotationPrefix: [x:42, value:[]]
 // lib.MyLibClass: MyVarArgAnnotationPrefixDefault: [value:[], x:42]
@@ -39,8 +40,11 @@
 // lib.MyLibClass: MyJavaAnnotationPrefixDefaultSuffix: [y:true, value:[], x:42]
 // lib.MyLibClass: MyJavaAnnotationPrefixDefaultSuffixDefault: [value:[], x:42, y:true]
 // lib.MyLibClass: MyJavaAnnotationPrefixSuffixDefault: [x:42, value:[], y:true]
+// lib.MyLibClass: MyAliasedVarArgAnnotation: [value:[]]
+// lib.MyLibClass: MyAliasedNestedVarArgAnnotation: [value:@MyAliasedVarArgAnnotation[value:[]]]
 // com.example.MyMainClass: MyAnnotationWithDefault: [value:[]]
 // com.example.MyMainClass: MyAnnotationWithoutDefault: [value:[]]
+// com.example.MyMainClass: MyNestedVarArgAnnotation: [nested:@MyVarArgAnnotation[value:[]]]
 // com.example.MyMainClass: MyVarArgAnnotation: [value:[]]
 // com.example.MyMainClass: MyVarArgAnnotationPrefix: [x:42, value:[]]
 // com.example.MyMainClass: MyVarArgAnnotationPrefixDefault: [x:42, value:[]]
@@ -60,6 +64,10 @@
 // com.example.MyMainClass: MyJavaAnnotationPrefixDefaultSuffix: [y:true, x:42, value:[]]
 // com.example.MyMainClass: MyJavaAnnotationPrefixDefaultSuffixDefault: [x:42, y:true, value:[]]
 // com.example.MyMainClass: MyJavaAnnotationPrefixSuffixDefault: [x:42, y:true, value:[]]
+// com.example.MyMainClass: MyJavaSourceAnnotationWithoutDefault: [value:[]]
+// com.example.MyMainClass: MyTypeAlias: [value:[]]
+// com.example.MyMainClass: MyNestedTypeAlias: [value:@MyAliasedVarArgAnnotation[value:[]]]
+// com.example.MyMainClass: MyNestedKotlinSourceAnnotation: [value:@MyJavaSourceAnnotationWithoutDefault[value:[]]]
 // com.example.MyJavaClass: JavaApplyToNull: [values:null]
 // END
 
@@ -88,6 +96,16 @@ annotation class MyVarArgAnnotationPrefixDefaultSuffix(val x: Int = 42, vararg v
 annotation class MyVarArgAnnotationPrefixDefaultSuffixDefault(val x: Int = 42, vararg val value: String, val y: Boolean = true)
 
 annotation class MyVarArgAnnotationPrefixSuffixDefault(val x: Int, vararg val value: String, val y: Boolean = true)
+
+annotation class MyNestedVarArgAnnotation(val nested: MyVarArgAnnotation)
+
+annotation class MyAliasedVarArgAnnotation(vararg val value: String)
+
+typealias MyTypeAlias = MyAliasedVarArgAnnotation
+
+annotation class MyAliasedNestedVarArgAnnotation(val value: MyTypeAlias)
+
+typealias MyNestedTypeAlias = MyAliasedNestedVarArgAnnotation
 
 // FILE: MyJavaAnnotationWithDefault.java
 package annotations;
@@ -184,6 +202,7 @@ package lib
 
 import annotations.MyAnnotationWithDefault
 import annotations.MyAnnotationWithoutDefault
+import annotations.MyNestedVarArgAnnotation
 import annotations.MyVarArgAnnotation
 import annotations.MyVarArgAnnotationPrefix
 import annotations.MyVarArgAnnotationPrefixDefault
@@ -203,9 +222,12 @@ import annotations.MyJavaAnnotationPrefixSuffix
 import annotations.MyJavaAnnotationPrefixDefaultSuffix
 import annotations.MyJavaAnnotationPrefixDefaultSuffixDefault
 import annotations.MyJavaAnnotationPrefixSuffixDefault
+import annotations.MyTypeAlias
+import annotations.MyNestedTypeAlias
 
 @MyAnnotationWithDefault
 @MyAnnotationWithoutDefault([])
+@MyNestedVarArgAnnotation(MyVarArgAnnotation())
 @MyVarArgAnnotation
 @MyVarArgAnnotationPrefix(42)
 @MyVarArgAnnotationPrefixDefault
@@ -225,6 +247,8 @@ import annotations.MyJavaAnnotationPrefixSuffixDefault
 @MyJavaAnnotationPrefixDefaultSuffix(y = true)
 @MyJavaAnnotationPrefixDefaultSuffixDefault
 @MyJavaAnnotationPrefixSuffixDefault(x = 42)
+@MyTypeAlias
+@MyNestedTypeAlias(MyTypeAlias())
 class MyLibClass
 
 // MODULE: main(lib, annos)
@@ -233,6 +257,7 @@ package com.example
 
 import annotations.MyAnnotationWithDefault
 import annotations.MyAnnotationWithoutDefault
+import annotations.MyNestedVarArgAnnotation
 import annotations.MyVarArgAnnotation
 import annotations.MyVarArgAnnotationPrefix
 import annotations.MyVarArgAnnotationPrefixDefault
@@ -252,9 +277,12 @@ import annotations.MyJavaAnnotationPrefixSuffix
 import annotations.MyJavaAnnotationPrefixDefaultSuffix
 import annotations.MyJavaAnnotationPrefixDefaultSuffixDefault
 import annotations.MyJavaAnnotationPrefixSuffixDefault
+import annotations.MyTypeAlias
+import annotations.MyNestedTypeAlias
 
 @MyAnnotationWithDefault
 @MyAnnotationWithoutDefault([])
+@MyNestedVarArgAnnotation(MyVarArgAnnotation())
 @MyVarArgAnnotation
 @MyVarArgAnnotationPrefix(42)
 @MyVarArgAnnotationPrefixDefault
@@ -274,6 +302,10 @@ import annotations.MyJavaAnnotationPrefixSuffixDefault
 @MyJavaAnnotationPrefixDefaultSuffix(y = true)
 @MyJavaAnnotationPrefixDefaultSuffixDefault
 @MyJavaAnnotationPrefixSuffixDefault(x = 42)
+@MyJavaSourceAnnotationWithoutDefault
+@MyTypeAlias
+@MyNestedTypeAlias(MyTypeAlias())
+@MyNestedKotlinSourceAnnotation(MyJavaSourceAnnotationWithoutDefault())
 class MyMainClass
 
 // FILE: MyJavaClass.java
@@ -284,3 +316,15 @@ import annotations.JavaApplyToNull;
 @JavaApplyToNull(null)
 class MyJavaClass {
 }
+
+// FILE: MyJavaSourceAnnotationWithoutDefault.java
+package com.example;
+
+public @interface MyJavaSourceAnnotationWithoutDefault {
+    String[] value();
+}
+
+// FILE: MyNestedKotlinSourceAnnotation.kt
+package com.example
+
+annotation class MyNestedKotlinSourceAnnotation(val value: MyJavaSourceAnnotationWithoutDefault)
