@@ -19,12 +19,14 @@ package com.google.devtools.ksp.impl.symbol.kotlin.resolved
 import com.google.devtools.ksp.common.IdKeyPair
 import com.google.devtools.ksp.common.KSObjectCache
 import com.google.devtools.ksp.common.impl.KSNameImpl
+import com.google.devtools.ksp.impl.symbol.java.KSValueArgumentLiteImpl
 import com.google.devtools.ksp.impl.symbol.kotlin.KSValueArgumentImpl
 import com.google.devtools.ksp.impl.symbol.kotlin.analyze
 import com.google.devtools.ksp.impl.symbol.kotlin.getAbsentDefaultArguments
 import com.google.devtools.ksp.impl.symbol.kotlin.getDefaultArguments
 import com.google.devtools.ksp.symbol.AnnotationUseSiteTarget
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -34,6 +36,7 @@ import com.google.devtools.ksp.symbol.Location
 import com.google.devtools.ksp.symbol.NonExistLocation
 import com.google.devtools.ksp.symbol.Origin
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotation
+import org.jetbrains.kotlin.analysis.api.annotations.KaNamedAnnotationValue
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.ALL
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.CONSTRUCTOR_PARAMETER
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.FIELD
@@ -104,7 +107,41 @@ class KSAnnotationResolvedImpl private constructor(
             } else origin
             KSValueArgumentImpl.getCached(arg, this, argOrigin)
         }
-        presentArgs + getAbsentDefaultArguments(presentArgs)
+        presentArgs +
+            getAbsentDefaultArguments(presentArgs) +
+            listOfNotNull(findAbsentVarargs(annotationApplication.arguments))
+    }
+
+    private val annotationDeclaration: KSClassDeclaration? by lazy {
+        annotationType.resolve().declaration as? KSClassDeclaration
+    }
+
+    private fun findAbsentVarargs(presentArgs: List<KaNamedAnnotationValue>): KSValueArgument? {
+        // 0. Check for full application and do early return
+        val annotationParameters = annotationDeclaration?.primaryConstructor?.parameters
+        if (annotationParameters?.size == presentArgs.size) {
+            return null
+        }
+
+        // 1. Obtain a vararg parameter if it exists.
+        // If it has a default value, it has been returned by `getAbsentDefaultArgument` so do early return.
+        val varargParameter = annotationParameters?.find { it.isVararg && !it.hasDefault } ?: return null
+
+        // 2. Check if the vararg was in the present arguments. Early return if it is, since it's not absent.
+        val presentArgsVararg = presentArgs.find { varargParameter.name == KSNameImpl.getCached(it.name.asString()) }
+
+        if (presentArgsVararg != null) {
+            return null
+        }
+
+        // 3. The parameter is missing so return a singleton list containing empty list value.
+        return KSValueArgumentLiteImpl(
+            name = varargParameter.name,
+            value = emptyList<Any?>(),
+            parent = this,
+            origin = Origin.SYNTHETIC,
+            location = location
+        )
     }
 
     override val defaultArguments: List<KSValueArgument> by lazy {
