@@ -17,6 +17,7 @@
 
 package com.google.devtools.ksp.impl.symbol.kotlin
 
+import com.google.devtools.ksp.InternalKSPException
 import com.google.devtools.ksp.common.IdKeyPair
 import com.google.devtools.ksp.common.KSObjectCache
 import com.google.devtools.ksp.common.impl.KSNameImpl
@@ -52,6 +53,17 @@ class KSAnnotationImpl private constructor(
             cache.getOrPut(IdKeyPair(ktAnnotationEntry, parent)) {
                 KSAnnotationImpl(ktAnnotationEntry, parent, resolveToAnnotationApplication)
             }
+
+        val PRIMITIVE_ARRAY_FQ_NAMES = setOf(
+            "kotlin.BooleanArray",
+            "kotlin.ByteArray",
+            "kotlin.CharArray",
+            "kotlin.ShortArray",
+            "kotlin.IntArray",
+            "kotlin.LongArray",
+            "kotlin.FloatArray",
+            "kotlin.DoubleArray",
+        )
     }
 
     private val annotationApplication by lazy {
@@ -83,8 +95,15 @@ class KSAnnotationImpl private constructor(
     }
 
     private fun findAbsentVarargs(presentArgs: List<KaNamedAnnotationValue>): KSValueArgument? {
+        // Special case: Java source annotations in Kotlin source.
+        // They behave differently since the primary constructor is null.
+        val declaration = annotationDeclaration ?: return null
+        if (declaration.origin == Origin.JAVA) {
+            return findAbsentJavaSourceVararg(declaration, presentArgs)
+        }
+
         // 0. Check for full application and do early return
-        val annotationParameters = annotationDeclaration?.primaryConstructor?.parameters
+        val annotationParameters = declaration.primaryConstructor?.parameters
         if (annotationParameters?.size == presentArgs.size) {
             return null
         }
@@ -103,6 +122,56 @@ class KSAnnotationImpl private constructor(
         // 3. The parameter is missing so return a singleton list containing empty list value.
         return KSValueArgumentLiteImpl(
             name = varargParameter.name,
+            value = emptyList<Any?>(),
+            parent = this,
+            origin = Origin.SYNTHETIC,
+            location = location
+        )
+    }
+
+    private fun findAbsentJavaSourceVararg(
+        declaration: KSClassDeclaration,
+        presentArgs: List<KaNamedAnnotationValue>
+    ): KSValueArgument? {
+        // Precondition: The declaration must come from a Java source
+        if (declaration.origin != Origin.JAVA) {
+            throw InternalKSPException(
+                message = "Expected Origin.JAVA in findAbsentJavaSourceVararg, but got $origin",
+                location = location,
+                originatingClass = javaClass
+            )
+        }
+
+        val parameters = declaration.getAllProperties().toList()
+
+        // Early return if the annotation is fully applied.
+        if (parameters.size == presentArgs.size) {
+            return null
+        }
+
+        // Early return if vararg parameter is present. Regardless of the type, a Java vararg parameter
+        // must have the name "value", so if it exists at the call site we can safely return null here.
+        val valueName = KSNameImpl.getCached("value")
+        val varargParameterIsPresentAtCallSite = presentArgs.find { it.name == valueName } != null
+
+        if (varargParameterIsPresentAtCallSite) {
+            return null
+        }
+
+        val maybeVarargMember = parameters.find { it.simpleName == valueName } ?: return null
+
+        // Check if the type of the parameter is an array type
+        val parameterTypeDeclaration = maybeVarargMember.type.resolve().declaration as? KSClassDeclaration ?: return null
+
+        val fqn = parameterTypeDeclaration.qualifiedName?.asString() ?: return null
+        val isArrayType = fqn == "kotlin.Array" || fqn in PRIMITIVE_ARRAY_FQ_NAMES
+
+        if (!isArrayType) {
+            return null
+        }
+
+        return KSValueArgumentLiteImpl(
+            name = valueName,
             value = emptyList<Any?>(),
             parent = this,
             origin = Origin.SYNTHETIC,
