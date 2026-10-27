@@ -20,11 +20,13 @@ package com.google.devtools.ksp.impl.symbol.kotlin
 import com.google.devtools.ksp.common.IdKeyPair
 import com.google.devtools.ksp.common.KSObjectCache
 import com.google.devtools.ksp.common.impl.KSNameImpl
+import com.google.devtools.ksp.findActualType
 import com.google.devtools.ksp.symbol.AnnotationUseSiteTarget
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.KSVisitor
@@ -83,7 +85,11 @@ class KSAnnotationImpl private constructor(
     }
 
     private val annotationDeclaration: KSClassDeclaration? by lazy {
-        annotationType.resolve().declaration as? KSClassDeclaration
+        when (val declaration = annotationType.resolve().declaration) {
+            is KSClassDeclaration -> declaration
+            is KSTypeAlias -> declaration.findActualType()
+            else -> null
+        }
     }
 
     override val defaultArguments: List<KSValueArgument> by lazy {
