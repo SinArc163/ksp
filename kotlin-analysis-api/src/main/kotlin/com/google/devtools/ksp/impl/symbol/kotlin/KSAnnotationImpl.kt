@@ -23,6 +23,8 @@ import com.google.devtools.ksp.common.impl.KSNameImpl
 import com.google.devtools.ksp.impl.recordClassReferenceLookup
 import com.google.devtools.ksp.impl.symbol.java.KSValueArgumentLiteImpl
 import com.google.devtools.ksp.impl.symbol.java.calcValue
+import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getAbsentDefaultArguments
+import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getDefaultArguments
 import com.google.devtools.ksp.symbol.*
 import com.intellij.psi.PsiAnnotationMethod
 import com.intellij.psi.PsiClass
@@ -123,76 +125,5 @@ class KSAnnotationImpl private constructor(
 
     override fun toString(): String {
         return "@${shortName.asString()}"
-    }
-}
-
-/**
- * Returns any default arguments defined by the annotation that were not explicitly supplied at the call site.
- *
- * @param presentArgs The list of arguments explicitly provided at the call site.
- * @return A list of [KSValueArgument]s representing default values for all parameters omitted from [presentArgs].
- */
-internal fun KSAnnotation.getAbsentDefaultArguments(
-    presentArgs: List<KSValueArgument>
-): List<KSValueArgument> {
-    val presentNames = presentArgs.mapNotNull { it.name?.asString() }
-    return defaultArguments.filter { arg ->
-        arg.name?.asString() !in presentNames
-    }
-}
-
-/**
- * Resolves and returns all default argument values defined on an annotation declaration.
- *
- * For Java source annotations ([PsiClass]), default values are extracted from [PsiAnnotationMethod.defaultValue].
- * For Kotlin annotations, default values are retrieved from the primary constructor value parameters,
- * and class reference lookups are recorded for incremental processing when default values contain class literals.
- *
- * @param classId The [ClassId] of the annotation class declaration, or `null`.
- * @return A list of [KSValueArgument]s representing all default arguments defined by the annotation.
- */
-@OptIn(KaImplementationDetail::class)
-internal fun KSAnnotation.getDefaultArguments(classId: ClassId?): List<KSValueArgument> {
-    if (classId == null) return emptyList()
-    return analyze {
-        classId.toKtClassSymbol()?.let { symbol ->
-            if (
-                symbol.origin == KaSymbolOrigin.JAVA_SOURCE && symbol.psi != null &&
-                symbol.psi !is ClsClassImpl && symbol.psi is PsiClass
-            ) {
-                (symbol.psi as PsiClass).allMethods.filterIsInstance<PsiAnnotationMethod>()
-                    .mapNotNull { annoMethod ->
-                        annoMethod.defaultValue?.let { value ->
-                            KSValueArgumentLiteImpl(
-                                KSNameImpl.getCached(annoMethod.name),
-                                calcValue(value, this@getDefaultArguments),
-                                this@getDefaultArguments,
-                                Origin.SYNTHETIC,
-                                value.toLocation()
-                            )
-                        }
-                    }
-            } else {
-                symbol.memberScope.constructors.singleOrNull()?.let {
-                    it.valueParameters.mapNotNull { valueParameterSymbol ->
-                        if (!valueParameterSymbol.hasDefaultValue) return@mapNotNull null
-                        val constantValue = valueParameterSymbol.getDefaultValue() ?: return@mapNotNull null
-                        if (constantValue is KaAnnotationValue.ClassLiteralValue) {
-                            this@getDefaultArguments.findParentDeclaration()?.let { decl ->
-                                recordClassReferenceLookup(constantValue.type, decl)
-                            }
-                        }
-                        KSValueArgumentImpl.getCached(
-                            KaBaseNamedAnnotationValue(
-                                valueParameterSymbol.name,
-                                constantValue
-                            ),
-                            this@getDefaultArguments,
-                            Origin.SYNTHETIC
-                        )
-                    }
-                }
-            }
-        } ?: emptyList()
     }
 }
