@@ -21,6 +21,7 @@ import com.google.devtools.ksp.InternalKSPException
 import com.google.devtools.ksp.common.IdKeyPair
 import com.google.devtools.ksp.common.KSObjectCache
 import com.google.devtools.ksp.common.impl.KSNameImpl
+import com.google.devtools.ksp.impl.KotlinConstants
 import com.google.devtools.ksp.impl.recordClassReferenceLookup
 import com.google.devtools.ksp.impl.symbol.java.KSValueArgumentLiteImpl
 import com.google.devtools.ksp.impl.symbol.java.calcValue
@@ -53,17 +54,6 @@ class KSAnnotationImpl private constructor(
             cache.getOrPut(IdKeyPair(ktAnnotationEntry, parent)) {
                 KSAnnotationImpl(ktAnnotationEntry, parent, resolveToAnnotationApplication)
             }
-
-        val PRIMITIVE_ARRAY_FQ_NAMES = setOf(
-            "kotlin.BooleanArray",
-            "kotlin.ByteArray",
-            "kotlin.CharArray",
-            "kotlin.ShortArray",
-            "kotlin.IntArray",
-            "kotlin.LongArray",
-            "kotlin.FloatArray",
-            "kotlin.DoubleArray",
-        )
     }
 
     private val annotationApplication by lazy {
@@ -164,7 +154,7 @@ class KSAnnotationImpl private constructor(
         val parameterTypeDeclaration = maybeVarargMember.type.resolve().declaration as? KSClassDeclaration ?: return null
 
         val fqn = parameterTypeDeclaration.qualifiedName?.asString() ?: return null
-        val isArrayType = fqn == "kotlin.Array" || fqn in PRIMITIVE_ARRAY_FQ_NAMES
+        val isArrayType = fqn in KotlinConstants.ALL_ARRAY_FQ_NAMES
 
         if (!isArrayType) {
             return null
