@@ -20,22 +20,21 @@ package com.google.devtools.ksp.impl.symbol.kotlin
 import com.google.devtools.ksp.common.IdKeyPair
 import com.google.devtools.ksp.common.KSObjectCache
 import com.google.devtools.ksp.common.impl.KSNameImpl
-import com.google.devtools.ksp.impl.recordClassReferenceLookup
-import com.google.devtools.ksp.impl.symbol.java.KSValueArgumentLiteImpl
-import com.google.devtools.ksp.impl.symbol.java.calcValue
 import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getAbsentDefaultArguments
 import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getDefaultArguments
-import com.google.devtools.ksp.symbol.*
-import com.intellij.psi.PsiAnnotationMethod
-import com.intellij.psi.PsiClass
-import com.intellij.psi.impl.compiled.ClsClassImpl
-import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
+import com.google.devtools.ksp.symbol.AnnotationUseSiteTarget
+import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSName
+import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.KSTypeReference
+import com.google.devtools.ksp.symbol.KSValueArgument
+import com.google.devtools.ksp.symbol.KSVisitor
+import com.google.devtools.ksp.symbol.Location
+import com.google.devtools.ksp.symbol.NonExistLocation
+import com.google.devtools.ksp.symbol.Origin
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotation
-import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
-import org.jetbrains.kotlin.analysis.api.impl.base.annotations.KaBaseNamedAnnotationValue
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
-import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.*
-import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget as KaAnnotationUseSiteTarget
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
 
 // TODO: implement a psi based version of annotation application.
@@ -100,16 +99,16 @@ class KSAnnotationImpl private constructor(
     override val useSiteTarget: AnnotationUseSiteTarget? by lazy {
         when (ktAnnotationEntry.useSiteTarget?.getAnnotationUseSiteTarget()) {
             null -> null
-            FILE -> AnnotationUseSiteTarget.FILE
-            PROPERTY -> AnnotationUseSiteTarget.PROPERTY
-            FIELD -> AnnotationUseSiteTarget.FIELD
-            PROPERTY_GETTER -> AnnotationUseSiteTarget.GET
-            PROPERTY_SETTER -> AnnotationUseSiteTarget.SET
-            RECEIVER -> AnnotationUseSiteTarget.RECEIVER
-            CONSTRUCTOR_PARAMETER -> AnnotationUseSiteTarget.PARAM
-            SETTER_PARAMETER -> AnnotationUseSiteTarget.SETPARAM
-            PROPERTY_DELEGATE_FIELD -> AnnotationUseSiteTarget.DELEGATE
-            ALL -> AnnotationUseSiteTarget.ALL
+            KaAnnotationUseSiteTarget.FILE -> AnnotationUseSiteTarget.FILE
+            KaAnnotationUseSiteTarget.PROPERTY -> AnnotationUseSiteTarget.PROPERTY
+            KaAnnotationUseSiteTarget.FIELD -> AnnotationUseSiteTarget.FIELD
+            KaAnnotationUseSiteTarget.PROPERTY_GETTER -> AnnotationUseSiteTarget.GET
+            KaAnnotationUseSiteTarget.PROPERTY_SETTER -> AnnotationUseSiteTarget.SET
+            KaAnnotationUseSiteTarget.RECEIVER -> AnnotationUseSiteTarget.RECEIVER
+            KaAnnotationUseSiteTarget.CONSTRUCTOR_PARAMETER -> AnnotationUseSiteTarget.PARAM
+            KaAnnotationUseSiteTarget.SETTER_PARAMETER -> AnnotationUseSiteTarget.SETPARAM
+            KaAnnotationUseSiteTarget.PROPERTY_DELEGATE_FIELD -> AnnotationUseSiteTarget.DELEGATE
+            KaAnnotationUseSiteTarget.ALL -> AnnotationUseSiteTarget.ALL
         }
     }
 
