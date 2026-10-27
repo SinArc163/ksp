@@ -5,8 +5,7 @@ import com.google.devtools.ksp.common.impl.KSNameImpl
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.impl.ResolverAAImpl
 import com.google.devtools.ksp.impl.recordClassReferenceLookup
-import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getAbsentDefaultArguments
-import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps.getDefaultArguments
+import com.google.devtools.ksp.impl.symbol.kotlin.KSAnnotationOps
 import com.google.devtools.ksp.impl.symbol.kotlin.KSClassDeclarationEnumEntryImpl
 import com.google.devtools.ksp.impl.symbol.kotlin.KSErrorType
 import com.google.devtools.ksp.impl.symbol.kotlin.analyze
@@ -90,12 +89,12 @@ class KSAnnotationJavaImpl private constructor(private val psi: PsiAnnotation, o
                     it.toLocation()
                 )
             }
-            presentArgs + getAbsentDefaultArguments(this@KSAnnotationJavaImpl, presentArgs)
+            presentArgs + KSAnnotationOps.resolveAbsentDefaultArguments(this@KSAnnotationJavaImpl, presentArgs)
         }
     }
 
     override val defaultArguments: List<KSValueArgument> by lazy {
-        getDefaultArguments(this@KSAnnotationJavaImpl, classId)
+        KSAnnotationOps.resolveDefaultArguments(this@KSAnnotationJavaImpl, classId)
     }
 
     override val shortName: KSName by lazy {

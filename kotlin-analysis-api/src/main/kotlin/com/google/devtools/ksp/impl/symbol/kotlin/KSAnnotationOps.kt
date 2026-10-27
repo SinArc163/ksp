@@ -49,7 +49,7 @@ internal object KSAnnotationOps {
      * If the annotation defines an unassigned vararg parameter that was omitted from [presentArgs] and does
      * not have an explicit default value, this returns a synthetic [KSValueArgument] containing an empty list.
      *
-     * For Java-defined annotations applied in Kotlin, delegates to [findAbsentJavaSourceVararg] because
+     * For Java-defined annotations applied in Kotlin, delegates to [resolveAbsentJavaSourceVararg] because
      * Java annotations lack a primary constructor and vararg modifiers.
      *
      * @param annotationApplication The [KSAnnotation] call site / instance to which this vararg argument belongs.
@@ -58,7 +58,7 @@ internal object KSAnnotationOps {
      * @return A synthetic [KSValueArgument] with an empty list if a vararg parameter was omitted, or `null` otherwise.
      */
     @JvmStatic
-    fun findAbsentVarargs(
+    fun resolveAbsentVararg(
         annotationApplication: KSAnnotation,
         declaration: KSClassDeclaration?,
         presentArgs: List<KaNamedAnnotationValue>
@@ -70,7 +70,7 @@ internal object KSAnnotationOps {
         // Special case: Java source annotations in Kotlin source.
         // They behave differently since the primary constructor is null.
         if (declaration.origin == Origin.JAVA) {
-            return findAbsentJavaSourceVararg(annotationApplication, declaration, presentArgs)
+            return resolveAbsentJavaSourceVararg(annotationApplication, declaration, presentArgs)
         }
 
         // 0. Check for full application and do early return
@@ -115,7 +115,7 @@ internal object KSAnnotationOps {
      * @return A synthetic [KSValueArgument] for `"value"` with an empty list, or `null` if not applicable or already present.
      */
     @JvmStatic
-    private fun findAbsentJavaSourceVararg(
+    private fun resolveAbsentJavaSourceVararg(
         annotationApplication: KSAnnotation,
         declaration: KSClassDeclaration,
         presentArgs: List<KaNamedAnnotationValue>
@@ -175,7 +175,7 @@ internal object KSAnnotationOps {
      * @return A list of [KSValueArgument]s representing default values for all parameters omitted from [presentArgs].
      */
     @JvmStatic
-    fun getAbsentDefaultArguments(
+    fun resolveAbsentDefaultArguments(
         ksAnnotation: KSAnnotation,
         presentArgs: List<KSValueArgument>
     ): List<KSValueArgument> {
@@ -198,7 +198,7 @@ internal object KSAnnotationOps {
      */
     @OptIn(KaImplementationDetail::class)
     @JvmStatic
-    fun getDefaultArguments(ksAnnotation: KSAnnotation, classId: ClassId?): List<KSValueArgument> {
+    fun resolveDefaultArguments(ksAnnotation: KSAnnotation, classId: ClassId?): List<KSValueArgument> {
         if (classId == null) return emptyList()
         return analyze {
             classId.toKtClassSymbol()?.let { symbol ->
