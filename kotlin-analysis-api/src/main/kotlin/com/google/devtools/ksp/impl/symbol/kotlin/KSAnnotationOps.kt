@@ -170,14 +170,17 @@ internal object KSAnnotationOps {
     /**
      * Returns any default arguments defined by the annotation that were not explicitly supplied at the call site.
      *
+     * @param ksAnnotation The [KSAnnotation] call site / instance whose default arguments are being retrieved.
      * @param presentArgs The list of arguments explicitly provided at the call site.
      * @return A list of [KSValueArgument]s representing default values for all parameters omitted from [presentArgs].
      */
-    internal fun KSAnnotation.getAbsentDefaultArguments(
+    @JvmStatic
+    fun getAbsentDefaultArguments(
+        ksAnnotation: KSAnnotation,
         presentArgs: List<KSValueArgument>
     ): List<KSValueArgument> {
         val presentNames = presentArgs.mapNotNull { it.name?.asString() }
-        return defaultArguments.filter { arg ->
+        return ksAnnotation.defaultArguments.filter { arg ->
             arg.name?.asString() !in presentNames
         }
     }
@@ -189,11 +192,13 @@ internal object KSAnnotationOps {
      * For Kotlin annotations, default values are retrieved from the primary constructor value parameters,
      * and class reference lookups are recorded for incremental processing when default values contain class literals.
      *
+     * @param ksAnnotation The [KSAnnotation] call site / instance to which the resolved default arguments will belong.
      * @param classId The [ClassId] of the annotation class declaration, or `null`.
      * @return A list of [KSValueArgument]s representing all default arguments defined by the annotation.
      */
     @OptIn(KaImplementationDetail::class)
-    internal fun KSAnnotation.getDefaultArguments(classId: ClassId?): List<KSValueArgument> {
+    @JvmStatic
+    fun getDefaultArguments(ksAnnotation: KSAnnotation, classId: ClassId?): List<KSValueArgument> {
         if (classId == null) return emptyList()
         return analyze {
             classId.toKtClassSymbol()?.let { symbol ->
@@ -206,8 +211,8 @@ internal object KSAnnotationOps {
                             annoMethod.defaultValue?.let { value ->
                                 KSValueArgumentLiteImpl(
                                     KSNameImpl.getCached(annoMethod.name),
-                                    calcValue(value, this@getDefaultArguments),
-                                    this@getDefaultArguments,
+                                    calcValue(value, ksAnnotation),
+                                    ksAnnotation,
                                     Origin.SYNTHETIC,
                                     value.toLocation()
                                 )
@@ -219,7 +224,7 @@ internal object KSAnnotationOps {
                             if (!valueParameterSymbol.hasDefaultValue) return@mapNotNull null
                             val constantValue = valueParameterSymbol.getDefaultValue() ?: return@mapNotNull null
                             if (constantValue is KaAnnotationValue.ClassLiteralValue) {
-                                this@getDefaultArguments.findParentDeclaration()?.let { decl ->
+                                ksAnnotation.findParentDeclaration()?.let { decl ->
                                     recordClassReferenceLookup(constantValue.type, decl)
                                 }
                             }
@@ -228,7 +233,7 @@ internal object KSAnnotationOps {
                                     valueParameterSymbol.name,
                                     constantValue
                                 ),
-                                this@getDefaultArguments,
+                                ksAnnotation,
                                 Origin.SYNTHETIC
                             )
                         }
@@ -237,5 +242,4 @@ internal object KSAnnotationOps {
             } ?: emptyList()
         }
     }
-
 }
