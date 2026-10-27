@@ -84,6 +84,19 @@ class KSAnnotationImpl private constructor(
         annotationType.resolve().declaration as? KSClassDeclaration
     }
 
+    /**
+     * Finds and synthesizes an unassigned vararg argument if one was omitted at the annotation use site.
+     *
+     * In Kotlin, an unsupplied vararg parameter defaults to an empty array (represented as an empty list).
+     * If the annotation defines an unassigned vararg parameter that was omitted from [presentArgs] and does
+     * not have an explicit default value, this returns a synthetic [KSValueArgument] containing an empty list.
+     *
+     * For Java-defined annotations applied in Kotlin, delegates to [findAbsentJavaSourceVararg] because
+     * Java annotations lack a primary constructor and vararg modifiers.
+     *
+     * @param presentArgs The list of arguments present at the call site.
+     * @return A synthetic [KSValueArgument] with an empty list if a vararg parameter was omitted, or `null` otherwise.
+     */
     private fun findAbsentVarargs(presentArgs: List<KaNamedAnnotationValue>): KSValueArgument? {
         // Special case: Java source annotations in Kotlin source.
         // They behave differently since the primary constructor is null.
@@ -119,6 +132,19 @@ class KSAnnotationImpl private constructor(
         )
     }
 
+    /**
+     * Finds and synthesizes an omitted array-typed `value` argument for Java source annotations.
+     *
+     * In Java annotations, an attribute like `String[] value();` behaves like a vararg parameter when applied
+     * at a Kotlin call site (e.g., allowing `@MyAnno` with no arguments). Because Java annotations in KSP do not
+     * expose a Kotlin primary constructor or `vararg` parameter flags, this method inspects the Java declaration's
+     * declared properties. If a property named `"value"` has an array type (object or primitive array) and was
+     * omitted at the call site, a synthetic [KSValueArgument] containing an empty list is created.
+     *
+     * @param declaration The [KSClassDeclaration] of the Java annotation (must have [Origin.JAVA]).
+     * @param presentArgs The list of arguments present at the call site.
+     * @return A synthetic [KSValueArgument] for `"value"` with an empty list, or `null` if not applicable or already present.
+     */
     private fun findAbsentJavaSourceVararg(
         declaration: KSClassDeclaration,
         presentArgs: List<KaNamedAnnotationValue>
@@ -208,6 +234,12 @@ class KSAnnotationImpl private constructor(
     }
 }
 
+/**
+ * Returns any default arguments defined by the annotation that were not explicitly supplied at the call site.
+ *
+ * @param presentArgs The list of arguments explicitly provided at the call site.
+ * @return A list of [KSValueArgument]s representing default values for all parameters omitted from [presentArgs].
+ */
 internal fun KSAnnotation.getAbsentDefaultArguments(
     presentArgs: List<KSValueArgument>
 ): List<KSValueArgument> {
@@ -217,6 +249,16 @@ internal fun KSAnnotation.getAbsentDefaultArguments(
     }
 }
 
+/**
+ * Resolves and returns all default argument values defined on an annotation declaration.
+ *
+ * For Java source annotations ([PsiClass]), default values are extracted from [PsiAnnotationMethod.defaultValue].
+ * For Kotlin annotations, default values are retrieved from the primary constructor value parameters,
+ * and class reference lookups are recorded for incremental processing when default values contain class literals.
+ *
+ * @param classId The [ClassId] of the annotation class declaration, or `null`.
+ * @return A list of [KSValueArgument]s representing all default arguments defined by the annotation.
+ */
 @OptIn(KaImplementationDetail::class)
 internal fun KSAnnotation.getDefaultArguments(classId: ClassId?): List<KSValueArgument> {
     if (classId == null) return emptyList()
